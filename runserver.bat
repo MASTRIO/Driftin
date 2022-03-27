@@ -1,0 +1,1 @@
+nim c -r server/main.nim
