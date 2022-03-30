@@ -1,4 +1,4 @@
-import fidget, fidget/opengl/base, netty, vmath, bumpy, std/json
+import fidget, fidget/opengl/base, netty, flatty, vmath, bumpy, std/json, std/lists, std/strutils, std/strformat
 
 type
   Player = object
@@ -7,7 +7,7 @@ type
   Packet = object
     id: int
     packet_type: string
-    packet_data: # TODO: make this work
+    packet_data: string
 
 # create client and connect to the server
 var
@@ -36,17 +36,17 @@ proc create_packet(id: int, packet_type: string, packet_data: array[10, string])
   return $json
 ]#
 
-client.send(c2s, Packet(id: client_id, packet_type: "player_data", packet_data: [this_player.position]).toFlatty())
+client.send(c2s, Packet(id: client_id, packet_type: "player_position", packet_data: fmt"{this_player.position.x},{this_player.position.y}").toFlatty())
 
 # Used to draw stuff on screen
 # Runs at monitor refresh rate (48-60 hz)
 proc drawMain() =
   frame "main":
     box 0, 0, 620, 140
-    for i in 0 .. 4:
-      group "block":
-        box 20+i*120, 20, 100, 100
-        fill "#2B9FEA"
+    #for i in 0 .. 4:
+    #  group "block":
+    #    box 20+i*120, 20, 100, 100
+    #    fill "#2B9FEA"
 
 # Client loop code
 # runs every game tick (around 240 hz)
@@ -56,7 +56,14 @@ proc tickMain() =
 
   # Loop though server messages
   for msg in client.messages:
-    echo msg.data
+    var message_data: Packet = msg.data.fromFlatty(Packet)
+    
+    if message_data.packet_type == "player_position":
+      var coords = message_data.packet_data.split(",")
+      frame "main":
+        group "block":
+          box parseFloat(coords[0]), parseFloat(coords[1]), 100, 100
+          fill "#2B9FEA"
 
 startFidget(
   draw = drawMain,
