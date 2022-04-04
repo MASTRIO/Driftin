@@ -1,3 +1,7 @@
 nimcache/
 nimblecache/
 htmldocs/
+
+# Exe
+/client/main.exe
+/server/main.exe

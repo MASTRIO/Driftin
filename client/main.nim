@@ -1,8 +1,10 @@
-import boxy, opengl, windy, netty, vmath, std/strutils, std/strformat
+import boxy, opengl, windy, netty, vmath, std/strutils, std/strformat, std/random
+import physics_engine
 
 type
   Player = object
     position, velocity: Vec2
+    speed: float
   
   NetworkedPlayerData = object
     id: int
@@ -16,15 +18,19 @@ var
   client = newReactor()
   c2s = client.connect(ip, port)
 
-let client_id = 0 #rand(1..1000)
+randomize()
+var client_id = rand(1..10000000)
 echo "client id: ", client_id
 
 var this_player: Player = Player(
   position: Vec2(),
-  velocity: Vec2()
+  velocity: Vec2(),
+  speed: 1.0
 )
-this_player.position.x = 100
-this_player.position.y = 100
+randomize()
+this_player.position.x = rand(300.0)
+randomize()
+this_player.position.y = rand(200.0)
 
 var network_players = @[NetworkedPlayerData(id: client_id, position: this_player.position, velocity: this_player.velocity)]
 
@@ -44,25 +50,19 @@ var frame: int
 proc create_packet(id: int, packet_type: string, packet_data: string): string =
   return intToStr(id) & "||" & packet_type & "||" & packet_data
 
-client.send(c2s, create_packet(client_id, "new_player", fmt"sup, bro"))
-
 # Processes server connection data
 proc clientProcess() =
   # Update client
   client.tick()
 
   # Update player position on all clients
-  if client_id != 0:
-    client.send(c2s, create_packet(client_id, "player_position", fmt"{this_player.position.x},{this_player.position.y}|{this_player.velocity.x},{this_player.velocity.y}"))
+  client.send(c2s, create_packet(client_id, "player_position", fmt"{this_player.position.x},{this_player.position.y}|{this_player.velocity.x},{this_player.velocity.y}"))
 
   # Loop though server messages
   for msg in client.messages:
     var message_data = msg.data.split("||")
 
-    if message_data[1] == "set_client_id":
-      client_id = parseInt(message_data[2])
-
-    elif message_data[1] == "player_position":
+    if message_data[1] == "player_position":
       var split_data = message_data[2].split("|")
       let split_pos = split_data[0].split(",")
       let split_vel = split_data[1].split(",")
@@ -104,8 +104,12 @@ proc clientProcess() =
 
         network_players.add(network_player)
 
+  # Process client side physics
+  this_player.position = process_velocity(this_player.position, this_player.velocity, this_player.speed)
+  this_player.velocity = Vec2()
+
   # Player movement
-  this_player.position.y += 0.1
+  this_player.velocity.y += 1
 
 # Render display
 proc drawDisplay() =
